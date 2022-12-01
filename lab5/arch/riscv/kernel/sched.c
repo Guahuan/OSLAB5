@@ -5,6 +5,7 @@
 #include "rand.h"
 #include "slub.h"
 
+int x = 1;
 #define offset (0xffffffe000000000 - 0x80000000)
 
 struct task_struct *current;
