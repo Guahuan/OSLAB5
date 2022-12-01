@@ -1,3 +1,2 @@
 # OSLAB5
-ZJU_OSLAB_WS
-浙江大学 操作系统 LAB5
+浙江大学 操作系统 伍赛 LAB5
