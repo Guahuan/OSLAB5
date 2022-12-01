@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/yujie/Desktop/OS 操作系统/lab/lab5/OSLAB5",
+      "program": "/Users/yujie/Desktop/OS 操作系统/lab/lab5/OSLAB5/build/Debug/outDebug"
+    }
+  ]
+}
