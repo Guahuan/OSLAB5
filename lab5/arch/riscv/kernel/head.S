@@ -47,6 +47,7 @@ _start:
 	# .bss 段全部置 0
 	la t1, bss_start
 	la t2, bss_end
+
 clean_loop:
 	sb zero, 0(t1)           # 将 0 填充到 t1 这个地址
 	addi t1, t1, 1           # t1 ++
@@ -72,10 +73,55 @@ clean_loop:
 	# 准备跳转地址, mret 将会跳转到 mepc 位置执行
 	la t1, _supervisor
 	csrw mepc, t1
-	mret            
+	mret
 
 _supervisor:
-	
+	#your code
+	# 先设置 satp 寄存器为0，暂时关闭 MMU
+	csrw satp,zero
+
+	#设置 sp 的值为 stack_top 的物理地址（设置低地址空间栈环境
+	la sp,stack_top
+
+	#call puti
+
+	#调用 paging_init 函数建立页表
+	call paging_init
+
+	#call puti
+
+	#设置 satp 的值以打开 MMU
+	li t1,0x8000000000000000
+	la t2,_end
+	srl t2,t2,12
+	or t3,t1,t2
+
+	#call puti
+
+	csrw satp,t3
+
+	#call puti
+
+	#执行 sfence.vma 指令同步虚拟内存相关映射
+	sfence.vma
+
+	#设置 stvec 为异常处理函数 trap_s 在虚拟地址空间下的地址 （之后用到）
+	li t2,-0x80000000
+	li t3,0xffffffe000000000
+	add t2,t2,t3
+
+	la t1,trap_s
+	add t1,t1,t2
+	csrw stvec,t1
+
+	#记录 start_kernel 在虚拟地址空间下的地址，加载到 s0 寄存器中 （之后用到
+	la s0,start_kernel
+	add s0,s0,t2
+
+	la sp,init_stack_top
+	add sp,sp,t2
+
+	jr s0
 
 _mtrap:
 	# 交换 mscratch 和 sp
@@ -151,8 +197,8 @@ time_interupt:
 	# 恢复寄存器 mepc 和 mstatus
 	ld t0, 248(sp)
 	ld t1, 256(sp)
-  csrw mstatus, t0
-  csrw mepc, t1
+  	csrw mstatus, t0
+  	csrw mepc, t1
 	j exit
 
 encall_from_s:
@@ -185,8 +231,8 @@ other_trap:
 	# 恢复寄存器 mepc 和 mstatus
 	ld t0, 248(sp)
 	ld t1, 256(sp)
-  csrw mstatus, t0
-  csrw mepc, t1
+	csrw mstatus, t0
+	csrw mepc, t1
 
 exit:
 	#恢复寄存器
