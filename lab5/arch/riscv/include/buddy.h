@@ -2,7 +2,7 @@
 
 #include "stdint.h"
 
-typedef struct {·
+typedef struct {
   unsigned long size;
   unsigned bitmap[8192];
 } buddy;
