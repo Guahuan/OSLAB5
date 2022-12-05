@@ -313,13 +313,18 @@ void *kmalloc(size_t size) {
     // YOUR CODE HERE
     // 1. 判断 size 是否处于 slub_allocator[objindex] 管理的范围内
     // 2. 如果是就使用 kmem_cache_alloc 接口分配
+    if(size <= slub_allocator[objindex]->size) {
+      p = kmem_cache_alloc(slub_allocator[objindex]);
+      break;
+    }
   }
 
   // size 若不在 kmem_cache_objsize 范围之内，则使用 buddy system 来分配内存
   if (objindex >= NR_PARTIAL) {
     // YOUR CODE HERE
     // 1. 使用 alloc_pages 接口分配
-
+    int npages = size / PAGE_SIZE;
+    p = alloc_pages(npages);
     set_page_attr(p, (size - 1) / PAGE_SIZE, PAGE_BUDDY);
   }
 
@@ -338,12 +343,14 @@ void kfree(const void *addr) {
   if (page->flags == PAGE_BUDDY) {
     // YOUR CODE HERE
     // 1. 使用 free_pages 接口回收
+    free_pages(addr);
 
     clear_page_attr(ADDR_TO_PAGE(addr)->header);
 
   } else if (page->flags == PAGE_SLUB) {
     // YOUR CODE HERE
     // 1. 使用 kmem_cache_free 接口回收
+    kmem_cache_free(addr);
   }
 
   return;

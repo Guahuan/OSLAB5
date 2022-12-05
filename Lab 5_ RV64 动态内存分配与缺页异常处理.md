@@ -333,6 +333,10 @@ void free_pages(void*);
 
 最后，请将你编写好的 buddy.c 文件复制到下面代码框内。
 
+```c++
+
+```
+
 
 
 ### 3.3 实现 kmalloc 和 kfree （10%）
