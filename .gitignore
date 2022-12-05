@@ -1,1 +1,12 @@
 .vscode
+lab5/vmlinux
+lab5/arch/riscv/kernel/buddy.o
+lab5/arch/riscv/kernel/entry.o
+lab5/arch/riscv/kernel/head.o
+lab5/arch/riscv/kernel/sched.o
+lab5/arch/riscv/kernel/slub.o
+lab5/arch/riscv/kernel/strap.o
+lab5/arch/riscv/kernel/vm.o
+lab5/init/main.o
+lab5/lib/put.o
+lab5/lib/rand.o
