@@ -10,3 +10,5 @@ lab5/arch/riscv/kernel/vm.o
 lab5/init/main.o
 lab5/lib/put.o
 lab5/lib/rand.o
+lab5/System.map
+lab5/arch/riscv/boot/Image
