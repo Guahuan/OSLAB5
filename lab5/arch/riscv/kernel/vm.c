@@ -100,14 +100,7 @@ void paging_init()
     /* your code */
     uint64_t *pgtbl = &_end;
 
-    //text section
-    create_mapping(pgtbl, (uint64_t)&text_start + offset, (uint64_t)&text_start, (uint64_t)(0x2000), 1 | 4);
-    //rodata section
-    create_mapping(pgtbl, (uint64_t)&rodata_start + offset, (uint64_t)&rodata_start, (uint64_t)(0x1000), 1);
-    //other(except text & rodata)
-    create_mapping(pgtbl, (uint64_t)&data_start + offset, (uint64_t)&data_start, (uint64_t)(0x1000000-0x1000-0x2000), 1 | 2);
-    //内核起始地址等值映射
-    create_mapping(pgtbl, (uint64_t)(0x80000000), (uint64_t)0x80000000, (uint64_t)(0x1000), 1 | 2 | 4);
-    //UART
-    create_mapping(pgtbl, (uint64_t)(0x10000000), (uint64_t)(0x10000000), (uint64_t)(1), 1 | 2 | 4);
+    create_mapping(pgtbl, 0xffffffe000000000, 0x80000000, 0x1000000, 7);// 内核起始地址等值映射]
+    create_mapping(pgtbl, 0x80000000, 0x80000000, 0x1000000, 7);// UART等值映射
+    create_mapping(pgtbl, 0x10000000, 0x10000000, 0x100000, 7);
 }
