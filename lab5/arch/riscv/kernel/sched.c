@@ -25,9 +25,10 @@ void task_init(void) {
   for(int i=0;i <5; ++i)
   {
     //init
-    struct task_struct* init;
+
+   // printf("now init %d task \n", i);
+    struct task_struct* init = (struct task_struct*)(alloc_pages(1));
     uint64_t* pgtbl;
-    init = (struct task_struct*)(alloc_pages(1));
     init->state = TASK_RUNNING;
     init->counter = COUNTER_INIT_COUNTER[i];
     init->priority = PRIORITY_INIT_COUNTER[i];
@@ -37,12 +38,22 @@ void task_init(void) {
     task[i]->thread.sp = (unsigned long long)task[i] + TASK_SIZE;
     task[i]->thread.ra=(long long unsigned)&init_epc;
 
-    pgtbl=(unsigned long long)alloc_pages(1);
-    task[i]->mm.satp=pgtbl;
-    task[i]->mm.vm=NULL;
+    
+    pgtbl=(uint64_t)alloc_pages(1);
+   // printf("pgt %llx\n", pgtbl);
+    
+    if(pgtbl > (uint64_t)(0xf000000000000000)) pgtbl = (uint64_t)((uint64_t)(pgtbl)- (uint64_t)(offset));
+    
+   // printf("pgt %llx\n", pgtbl);
+   // puts(" before createmapping\n");
+
     create_mapping(pgtbl, (uint64_t)0xffffffe000000000, (uint64_t)0x80000000, (uint64_t)1<<24,7);
     create_mapping(pgtbl, (uint64_t)0x80000000, (uint64_t)0x80000000,( uint64_t)1<<24,7);
     create_mapping(pgtbl, (uint64_t)0x10000000, (uint64_t)0x10000000, (uint64_t)1<<20,7);
+
+   // puts(" after creatmapping\n");
+    task[i]->mm.satp=pgtbl;
+    task[i]->mm.vm=NULL;
     printf("[PID = %d] Process Create Successfully!\n", task[i]->pid);
 
   }
@@ -149,3 +160,4 @@ void *mmap(void *__addr, size_t __len, int __prot, int __flags, int __fd,
   }
   return __addr;
 }
+
