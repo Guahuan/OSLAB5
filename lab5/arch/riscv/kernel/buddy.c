@@ -6,7 +6,7 @@
 #define PARENT(INDEX) (((INDEX) - 1) / 2)
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
-#define BUDDY_SIZE 128
+#define BUDDY_SIZE 8192
 buddy mybuddy;
 extern unsigned long long text_start;
 
@@ -33,8 +33,10 @@ void *alloc_pages(int npages)
     unsigned offset = 0;
 
     // if uninited
-    if (mybuddy.size == 0)
+    if (mybuddy.size == 0) {
+        printf("no init");
         return -1;
+    }
 
     // fix npages
     if (npages <= 0)
@@ -47,8 +49,10 @@ void *alloc_pages(int npages)
     }
 
     // unenough place
-    if (mybuddy.bitmap[index] < npages)
+    if (mybuddy.bitmap[index] < npages) {
+        printf("no place");
         return -1;
+    }
 
     // find the node index
     for(node_size = mybuddy.size; node_size != npages; node_size /= 2 ) {
@@ -67,7 +71,7 @@ void *alloc_pages(int npages)
         index = (int)PARENT(index);
         mybuddy.bitmap[index] = MAX(mybuddy.bitmap[LEFT_LEAF(index)], mybuddy.bitmap[RIGHT_LEAF(index)]);
     }
-    return (unsigned long long)((unsigned long long)&text_start + 0x1000 * offset);
+    return (void*)(unsigned long long)((unsigned long long)&text_start + 0x1000 * offset);
 }
 
 void free_pages(void* addr)
