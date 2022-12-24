@@ -6,7 +6,7 @@
 #define PARENT(INDEX) (((INDEX) - 1) / 2)
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
-#define BUDDY_SIZE 8192
+#define BUDDY_SIZE 1024
 buddy mybuddy;
 extern unsigned long long text_start;
 
