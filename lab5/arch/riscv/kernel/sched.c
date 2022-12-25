@@ -35,14 +35,15 @@ void task_init(void) {
     init->blocked = 0;
     init->pid = i;
     task[i] = init;
+    
     task[i]->thread.sp = (unsigned long long)task[i] + TASK_SIZE;
     task[i]->thread.ra=(long long unsigned)&init_epc;
-
+    //printf("task sp %d 's address is %llx and ra is %llx \n", i, task[i]->thread.sp, task[i]->thread.ra);
     
     pgtbl=(uint64_t)alloc_pages(1);
    // printf("pgt %llx\n", pgtbl);
     
-    if(pgtbl > (uint64_t)(0xf000000000000000)) pgtbl = (uint64_t)((uint64_t)(pgtbl)- (uint64_t)(offset));
+    if(pgtbl > (uint64_t)(0xf000000000000000)) pgtbl = (uint64_t)((uint64_t)(pgtbl) - (uint64_t)(offset));
     
    // printf("pgt %llx\n", pgtbl);
    // puts(" before createmapping\n");
@@ -126,6 +127,7 @@ void switch_to(struct task_struct *next) {
 void dead_loop(void) {
   while (1) {
     if (current->pid) {
+      //puts(" before dead_loop \n");
       mmap(0, 0x1000, 7, 0, 0, 0);
       int *a = (int *)(0x0000);
       *a = 1;
@@ -136,6 +138,7 @@ void dead_loop(void) {
       int b = (*a);
       printf("\033[32m[CHECK] page load OK\033[0m\n\n");
 
+    //puts(" after dead_loop \n");
       while (1)
         ;
     }
@@ -160,4 +163,3 @@ void *mmap(void *__addr, size_t __len, int __prot, int __flags, int __fd,
   }
   return __addr;
 }
-
