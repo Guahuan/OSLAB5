@@ -40,6 +40,8 @@ void create_mapping(uint64_t *pgtbl, uint64_t va, uint64_t pa, uint64_t sz, int 
         else {
             // 生成新物理地址
             uint64_t new_page_address = (uint64_t)alloc_pages(1);
+            if(new_page_address > (uint64_t)(0xf000000000000000))
+                new_page_address = (uint64_t)((uint64_t)(new_page_address) - (uint64_t)(offset));
             // 更新当前pte内容
             // 保留原来pte的前10位，reserved
             uint64_t reserved = (uint64_t)(*pte & 0xffc0000000000000);
@@ -65,6 +67,8 @@ void create_mapping(uint64_t *pgtbl, uint64_t va, uint64_t pa, uint64_t sz, int 
         else {
             // 生成新物理地址
             uint64_t new_page_address = (uint64_t)alloc_pages(1);
+            if(new_page_address > (uint64_t)(0xf000000000000000))
+                new_page_address = (uint64_t)((uint64_t)(new_page_address)- (uint64_t)(offset));
             // 更新当前pte内容
             // 保留原来pte的前10位，reserved
             uint64_t reserved = (uint64_t)(*pte & 0xffc0000000000000);
@@ -100,7 +104,7 @@ void paging_init()
     /* your code */
     uint64_t *pgtbl = &_end;
 
-    create_mapping(pgtbl, 0xffffffe000000000, 0x80000000, 0x1000000, 7);// 内核起始地址等值映射]
-    create_mapping(pgtbl, 0x80000000, 0x80000000, 0x1000000, 7);// UART等值映射
-    create_mapping(pgtbl, 0x10000000, 0x10000000, 0x100000, 7);
+    create_mapping(pgtbl, (uint64_t)0xffffffe000000000, (uint64_t)0x80000000, (uint64_t)1<<24,7);
+    create_mapping(pgtbl, (uint64_t)0x80000000, (uint64_t)0x80000000,( uint64_t)1<<24,7);
+    create_mapping(pgtbl, (uint64_t)0x10000000, (uint64_t)0x10000000, (uint64_t)1<<20,7);
 }
