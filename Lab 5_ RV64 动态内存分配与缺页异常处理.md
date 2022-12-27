@@ -334,7 +334,113 @@ void free_pages(void*);
 最后，请将你编写好的 buddy.c 文件复制到下面代码框内。
 
 ```c++
+#include "buddy.h"
 
+#define IS_POWER_OF_2(N) ((N) > 0 && (((N) & ((N) - 1)) == 0))
+#define LEFT_LEAF(INDEX) ((INDEX) * 2 + 1)
+#define RIGHT_LEAF(INDEX) ((INDEX) * 2 + 2)
+#define PARENT(INDEX) (((INDEX) - 1) / 2)
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+
+#define BUDDY_SIZE 1024
+buddy mybuddy;
+extern unsigned long long text_start;
+
+// the root's index is 0
+void init_buddy_system(void)
+{
+    unsigned node_size;
+
+    mybuddy.size = BUDDY_SIZE;
+    node_size = BUDDY_SIZE * 2;
+
+    for (int i = 0; i < 2 * BUDDY_SIZE - 1; i++) {
+        if (IS_POWER_OF_2(i + 1))
+            node_size /= 2;
+        mybuddy.bitmap[i] = node_size;
+    }
+    return;
+}
+
+void *alloc_pages(int npages)
+{
+    unsigned index = 0;
+    unsigned node_size;
+    unsigned offset = 0;
+
+    // if uninited
+    if (mybuddy.size == 0) {
+        printf("no init");
+        return -1;
+    }
+
+    // fix npages
+    if (npages <= 0)
+        npages = 1;
+    else if (!IS_POWER_OF_2(npages)) {
+        unsigned ret = 1;
+        while (ret < npages)
+            ret = ret << 1;
+        npages = ret;
+    }
+
+    // unenough place
+    if (mybuddy.bitmap[index] < npages) {
+        printf("no place");
+        return -1;
+    }
+
+    // find the node index
+    for(node_size = mybuddy.size; node_size != npages; node_size /= 2 ) {
+        if (mybuddy.bitmap[LEFT_LEAF(index)] >= npages)
+            index = LEFT_LEAF(index);
+        else
+            index = RIGHT_LEAF(index);
+    }
+
+    // get offset index of pages
+    mybuddy.bitmap[index] = 0;
+    offset = (index + 1) * node_size - mybuddy.size;
+
+    // trace back
+    while (index) {
+        index = (int)PARENT(index);
+        mybuddy.bitmap[index] = MAX(mybuddy.bitmap[LEFT_LEAF(index)], mybuddy.bitmap[RIGHT_LEAF(index)]);
+    }
+    return (void*)(unsigned long long)((unsigned long long)&text_start + 0x1000 * offset);
+}
+
+void free_pages(void* addr)
+{
+    unsigned node_size, index = 0;
+    unsigned left_bitmap, right_bitmap;
+
+    unsigned offset = ((unsigned long long)addr - (unsigned long long)&text_start) / (unsigned long long)0x1000;
+
+    node_size = 1;
+    index = offset + mybuddy.size - 1;
+
+    for(; mybuddy.bitmap[index]; index = PARENT(index)) {
+        node_size *= 2;
+        if (index == 0)
+            return;
+    }
+
+    mybuddy.bitmap[index] = node_size;
+
+    while (index) {
+        index = PARENT(index);
+        node_size *= 2;
+
+        left_bitmap = mybuddy.bitmap[LEFT_LEAF(index)];
+        right_bitmap = mybuddy.bitmap[RIGHT_LEAF(index)];
+
+        if (left_bitmap + right_bitmap == node_size)
+            mybuddy.bitmap[index] = node_size;
+        else
+            mybuddy.bitmap[index] = MAX(left_bitmap, right_bitmap);
+    }
+}
 ```
 
 
@@ -414,13 +520,18 @@ void *kmalloc(size_t size) {
     // YOUR CODE HERE
     // 1. 判断 size 是否处于 slub_allocator[objindex] 管理的范围内
     // 2. 如果是就使用 kmem_cache_alloc 接口分配
+    if(size <= slub_allocator[objindex]->size) {
+      p = kmem_cache_alloc(slub_allocator[objindex]);
+      break;
+    }
   }
 
   // size 若不在 kmem_cache_objsize 范围之内，则使用 buddy system 来分配内存
   if (objindex >= NR_PARTIAL) {
     // YOUR CODE HERE
     // 1. 使用 alloc_pages 接口分配
-
+    int npages = size / PAGE_SIZE;
+    p = alloc_pages(npages);
     set_page_attr(p, (size - 1) / PAGE_SIZE, PAGE_BUDDY);
   }
 
@@ -454,12 +565,14 @@ void kfree(const void *addr) {
   if (page->flags == PAGE_BUDDY) {
     // YOUR CODE HERE
     // 1. 使用 free_pages 接口回收
+    free_pages(addr);
 
     clear_page_attr(ADDR_TO_PAGE(addr)->header);
 
   } else if (page->flags == PAGE_SLUB) {
     // YOUR CODE HERE
     // 1. 使用 kmem_cache_free 接口回收
+    kmem_cache_free(addr);
   }
 
   return;
@@ -795,46 +908,6 @@ Student1:123456 张三 Student2:123456 李四
 
 
 请在此附上你的实验结果截图。
-
-
-## 附录
-
-
-### A. 物理内存动态分配算法
-
-
-#### 伙伴系统（Buddy System）
-
-
-操作系统内核可采用伙伴系统（Buddy System）对物理内存进行管理。伙伴系统有多种，最常见的为依次按2的幂次大小组成的二进制伙伴系统（Binary Buddy System），这也是 Linux 系统中目前所采用的一种物理内存管理算法
-
-
-1. Binary buddy system <--本次试验所采用的伙伴系统算法
-2. Fibonacci buddy system
-3. Weighted buddy system
-4. Tertiary buddy system
-
-
-
-#### SLAB/SLUB分配器
-
-
-Buddy System 以 2^n 个 page 为粒度来进行物理内存的分配管理，Linux 中实现的 Buddy System 最小阶（order）为210，也就是4MB大小的连续物理内存空间。但是 Buddy System 并不满足更细粒度的内存管理，当由于分配/释放的内存空间与最小存储空间单位(1-Page)不完全相符时，如在先前实验中实现过的**task struct**(该数据结构的大小**小于**4KB)，该类小空间内存的频繁分配/释放容易产生**内部碎片**。为此需要借助专门的内存分配器加以优化解决**内部碎片**的问题。
-
-
-SLAB 是一个通用名称，指的是使用对象缓存的内存分配策略，从而能够有效地分配和释放内核对象。它首先由Sun 工程师 Jeff Bonwick 编写，并在 Solaris 2.4 内核中实现。Linux目前为它的“Slab”分配器提供了三种选择: SLAB 是最初的版本，基于 Bonwick 的开创性论文，从Linux内核版本2.2开始就可以使用了。它忠实地实现了Bonwick 的建议，并在 Bonwick 的后续[论文](http://static.usenix.org/event/usenix01/full_papers/bonwick/bonwick.pdf)中描述了多处理器的改变。
-
-
-SLUB 是下一代内存分配器（自Linux 2.6.23以来一直是Linux内核中的默认配置）。它继续采用基本的“SLAB”模型，但修复了 SLAB 设计中的一些缺陷，特别是在拥有大量处理器的系统上。且 SLUB 甚至要比 SLAB 简单。SLUB 机制[【link】](http://www.wowotech.net/memory_management/426.html)，可以理解为将 Page 拆分为更小的单位来进行管理。SLUB 系统的核心思想是使用**对象**的概念来管理物理内存。
-
-
-### `vm_page_prot`和 `vm_flags`的区别
-
-
-我们可以注意到这两个字段的 C 语言类型。`vm_page_prot` 的类型是 `pgprot_t`，这是arch级别的数据类型，这意味着它可以直接应用于底层架构的 Page Table Entries。在 RISC-V 64 位上，这个字段直接存储了vma 的 pte 中保护位的内容。而 `vm_flags` 是一个与arch无关的字段，它的位是参照 linux/mm.h 中定义的。可简单地将 `vm_flags` 看作是 `vm_page_prot` 的翻译结果，方便在操作系统其它地方的代码中判断每个 `vm_area`的具体权限。
-
-
-- 其中 vm_flags 的取值需要采用与[这里【link】](https://elixir.bootlin.com/linux/latest/source/include/linux/mm.h#L250)一致的定义方式。
 
 
 
