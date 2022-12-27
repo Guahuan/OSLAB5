@@ -47,14 +47,14 @@ void task_init(void) {
     
    // printf("pgt %llx\n", pgtbl);
    // puts(" before createmapping\n");
-
+    task[i]->mm.satp=0x8000000000000000|((uint64_t)pgtbl>>12);;
+    task[i]->mm.vm=NULL;
     create_mapping(pgtbl, (uint64_t)0xffffffe000000000, (uint64_t)0x80000000, (uint64_t)1<<24,7);
     create_mapping(pgtbl, (uint64_t)0x80000000, (uint64_t)0x80000000,( uint64_t)1<<24,7);
     create_mapping(pgtbl, (uint64_t)0x10000000, (uint64_t)0x10000000, (uint64_t)1<<20,7);
 
    // puts(" after creatmapping\n");
-    task[i]->mm.satp=pgtbl;
-    task[i]->mm.vm=NULL;
+    
     printf("[PID = %d] Process Create Successfully!\n", task[i]->pid);
 
   }
@@ -114,6 +114,7 @@ void switch_to(struct task_struct *next) {
     current=next;
     asm volatile(
       "csrw satp,%[csatp]\n"
+      "sfence.vma\n"
       :
       :[csatp] "r"(next->mm.satp)
       :"memory"
@@ -150,16 +151,17 @@ void *mmap(void *__addr, size_t __len, int __prot, int __flags, int __fd,
            int __offset) {
   struct vm_area_struct *vm;
   vm=(struct vm_area_struct *)kmalloc(sizeof(struct vm_area_struct));
-  vm->vm_start=__addr;
-  vm->vm_end=__addr+__len;
-  vm->vm_flags=__flags;
+  vm->vm_start=(uint64_t)__addr;
+  vm->vm_end=(uint64_t)__addr+__len;
+  vm->vm_flags=__prot;
+  // printf("test start:%llx,end:%llx\n",vm->vm_start,vm->vm_end);
+  // printf("vm:%x\n",vm);
   // 进程第一次分配匿名内存页
+  INIT_LIST_HEAD(&(vm->vm_list));
   if(current->mm.vm==NULL){
-    INIT_LIST_HEAD(&(vm->vm_list));
-    current->mm.vm=vm;
+    current->mm.vm=(struct vm_area_struct *)kmalloc(sizeof(struct vm_area_struct));
+    INIT_LIST_HEAD(&(current->mm.vm->vm_list));
   }
-  else{
-    list_add(&(vm->vm_list),&(current->mm.vm->vm_list));
-  }
+  list_add_tail(&(vm->vm_list),&(current->mm.vm->vm_list));
   return __addr;
 }
