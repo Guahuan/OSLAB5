@@ -30,7 +30,7 @@
 | 姓名 | 学号 | 分工 | 分配分数 |
 | --- | --- | --- | --- |
 | 孔郁杰 | 3200105109 | 3.2、3.3 | 50% |
-|  |  |  | 50% |
+| 何家骏 | 3200105876 | 3.4，3.5，3.6 | 50% |
 
 
 
@@ -636,6 +636,42 @@ struct mm_struct {
 
 
 
+```c++
+void task_init(void) {
+  for(int i=0;i <5; ++i)
+  {
+    struct task_struct* init = (struct task_struct*)(alloc_pages(1));
+    uint64_t* pgtbl;
+    init->state = TASK_RUNNING;
+    init->counter = COUNTER_INIT_COUNTER[i];
+    init->priority = PRIORITY_INIT_COUNTER[i];
+    init->blocked = 0;
+    init->pid = i;
+    task[i] = init;
+    
+    task[i]->thread.sp = (unsigned long long)task[i] + TASK_SIZE;
+    task[i]->thread.ra=(long long unsigned)&init_epc;
+    pgtbl=(uint64_t)alloc_pages(1);
+    
+    if(pgtbl > (uint64_t)(0xf000000000000000)) pgtbl = (uint64_t)((uint64_t)(pgtbl) - (uint64_t)(offset));
+    
+    task[i]->mm.satp = 0x8000000000000000|((uint64_t)pgtbl>>12);;
+    task[i]->mm.vm=NULL;
+    create_mapping(pgtbl, (uint64_t)0xffffffe000000000, (uint64_t)0x80000000, (uint64_t)1<<24,7);
+    create_mapping(pgtbl, (uint64_t)0x80000000, (uint64_t)0x80000000,( uint64_t)1<<24,7);
+    create_mapping(pgtbl, (uint64_t)0x10000000, (uint64_t)0x10000000, (uint64_t)1<<20,7);
+
+    printf("[PID = %d] Process Create Successfully!\n", task[i]->pid);
+
+  }
+
+  task_init_done=1;
+  current=task[0];
+}
+```
+
+
+
 
 #### 3.4.3 切换页表
 
@@ -647,6 +683,25 @@ struct mm_struct {
 
 
 最后，将你编写好的切换页表的部分代码复制到下面代码框内。
+
+
+
+```c
+void switch_to(struct task_struct *next) {
+  if(next->pid!=current->pid){
+    struct task_struct* prev=current;
+    current=next;
+    asm volatile(
+      "csrw satp,%[csatp]\n"
+      "sfence.vma\n"
+      :
+      :[csatp] "r"(next->mm.satp)
+      :"memory"
+    );
+    __switch_to(prev,current);
+  }
+}
+```
 
 
 
@@ -788,6 +843,30 @@ void *mmap (void *__addr, size_t __len, int __prot,
 
 最后，将你编写好的 mmap 函数复制到下面代码框内。
 
+
+
+```c++
+void *mmap(void *__addr, size_t __len, int __prot, int __flags, int __fd,
+           int __offset) {
+  struct vm_area_struct *vm;
+  vm = (struct vm_area_struct *)kmalloc(sizeof(struct vm_area_struct));
+  vm->vm_start = (uint64_t)__addr;
+  vm->vm_end = (uint64_t)__addr+__len;
+  vm->vm_flags = __prot;
+  INIT_LIST_HEAD(&(vm->vm_list));
+  if(current->mm.vm==NULL)
+  {
+    current->mm.vm=(struct vm_area_struct *)kmalloc(sizeof(struct vm_area_struct));
+    INIT_LIST_HEAD(&(current->mm.vm->vm_list));
+  }
+  list_add_tail(&(vm->vm_list), &(current->mm.vm->vm_list));
+  return __addr;
+}
+
+```
+
+
+
 ### 3.6 缺页异常处理 （20%）
 
 
@@ -852,6 +931,57 @@ RISC-V 下的中断异常可以分为两类，一类是 interrupt，另一类是
 
 
 
+```c++
+void handler_s(uint64_t cause, uint64_t *stack) {
+  if (cause >> 63) {                 // interrupt
+    if (((cause << 1) >> 1) == 5) {  // supervisor timer interrupt
+      asm volatile("ecall");
+      do_timer();
+    }
+  } else {//error
+    extern struct task_struct *current;
+    uint64_t stval = read_csr(stval);
+    if(cause == CAUSE_FETCH_PAGE_FAULT) printf("[FETCH_PAGE_FAULTTT] Address: %lx\n", stval);
+    else if(cause == CAUSE_LOAD_PAGE_FAULT) printf("[LOAD_PAGE_FAULT] Address: %lx\n", stval);
+    else if(cause == CAUSE_STORE_PAGE_FAULT)  printf("[STORE_PAGE_FAULT] Address: %lx\n", stval);
+
+    struct vm_area_struct *vas = current->mm.vm;
+    struct vm_area_struct *cur = NULL;
+    struct list_head *hd;
+    
+    int flag=0;
+    unsigned long vm_flags=0;
+
+    // 遍历vm_list
+    list_for_each(hd, &(vas->vm_list))
+    {
+      cur = list_entry(hd, struct vm_area_struct, vm_list);
+      if(((uint64_t)(cur->vm_start)<=stval)&&((uint64_t)(cur->vm_end)>=stval))
+      {
+        flag=1;
+        vm_flags = cur->vm_flags;
+      }
+    }
+
+    
+    if(!flag)
+      puts("Invalid vm area in page fault!\n");
+    else
+    {
+      //分配空间
+      uint64_t addr = (uint64_t)kmalloc(Kalloc_Size);
+      if(addr > (uint64_t)(0xf000000000000000)) addr = (uint64_t)((uint64_t)(addr) - (uint64_t)(offset));
+      uint64_t pgtbl = (uint64_t*)(((current->mm.satp)&0xfffffffffff)<<12);
+      create_mapping(pgtbl,stval,(uint64_t)addr,0x1000,vm_flags);
+    }
+  }
+  return;
+}
+
+```
+
+
+
 
 ### 3.6 编译和测试 
 
@@ -909,5 +1039,5 @@ Student1:123456 张三 Student2:123456 李四
 
 请在此附上你的实验结果截图。
 
-
+![image](https://github.com/Guahuan/OSLAB5/blob/main/test.png)
 
