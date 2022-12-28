@@ -1039,5 +1039,5 @@ Student1:123456 张三 Student2:123456 李四
 
 请在此附上你的实验结果截图。
 
-![image](https://github.com/Guahuan/OSLAB5/blob/main/test.png)
+![image](test.png)
 
