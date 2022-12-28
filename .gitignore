@@ -12,3 +12,4 @@ lab5/lib/put.o
 lab5/lib/rand.o
 lab5/System.map
 lab5/arch/riscv/boot/Image
+.DS_Store
